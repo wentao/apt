@@ -38,7 +38,7 @@ public class ${dao_name} extends SQLiteOpenHelper {
     onCreate(db);
   }
 
-  public void create(${entity_name} entity) {
+  public boolean create(${entity_name} entity) {
     SQLiteDatabase db = this.getWritableDatabase();
 
     ContentValues values = new ContentValues();
@@ -49,8 +49,9 @@ public class ${dao_name} extends SQLiteOpenHelper {
     values.put("${property.name}", entity.get${property.capName}());
     </#list>
 
-    db.insert(TABLE_NAME, null, values);
+    long rowId = db.insert(TABLE_NAME, null, values);
     db.close();
+    return rowId > -1;
   }
 
   public ${entity_name} get(${key_property.className} key) {
@@ -72,6 +73,9 @@ public class ${dao_name} extends SQLiteOpenHelper {
     <#list properties as property>
     entity.set${property.capName}(cursor.get${property.classNameForMethod}(i++));
     </#list>
+    
+    cursor.close();
+    db.close();
 
     return entity;
   }
@@ -97,7 +101,9 @@ public class ${dao_name} extends SQLiteOpenHelper {
         list.add(entity);
       } while (cursor.moveToNext());
     }
- 
+    
+    cursor.close();
+    db.close();
     return list;
   }
  
@@ -109,26 +115,38 @@ public class ${dao_name} extends SQLiteOpenHelper {
     values.put("${property.name}", entity.get${property.capName}());
     </#list>
 
-    return db.update(TABLE_NAME, values, "${key_property.name} = ?",
+    int numOfRows = db.update(TABLE_NAME, values, "${key_property.name} = ?",
         new String[] { String.valueOf(entity.get${key_property.capName}()) });
+    db.close();
+    return numOfRows;
   }
 
-  public void delete(${entity_name} entity) {
-    delete(entity.get${key_property.capName}());
+  public boolean delete(${entity_name} entity) {
+    return delete(entity.get${key_property.capName}());
   }
   
-  public void delete(${key_property.className} key) {
+  public boolean delete(${key_property.className} key) {
     SQLiteDatabase db = this.getWritableDatabase();
-    db.delete(TABLE_NAME, "${key_property.name} = ?",
+    int rowsEffected = db.delete(TABLE_NAME, "${key_property.name} = ?",
         new String[] { String.valueOf(key) });
     db.close();
+    return rowsEffected > 0;
+  }
+  
+  public int clear() {
+    SQLiteDatabase db = this.getWritableDatabase();
+    int numOfRows = db.delete(TABLE_NAME, "1", new String[] {});
+    db.close();
+    return numOfRows;
   }
  
   public int count() {
     String countQuery = "SELECT * FROM " + TABLE_NAME;
     SQLiteDatabase db = this.getReadableDatabase();
     Cursor cursor = db.rawQuery(countQuery, null);
+    int num = cursor.getCount(); 
     cursor.close();
-    return cursor.getCount();
+    db.close();
+    return num;
   }
 }
