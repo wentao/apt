@@ -4,18 +4,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 public enum DataType {
-  AUTO(false, null),
-  INTEGER(false, "Int", short.class, int.class, long.class, Integer.class, Long.class, Short.class),
-  REAL(false, "Double", double.class, float.class, Double.class, Float.class),
-  TEXT(true, "String", String.class),
-  BLOB(true, "Bytes");
+  AUTO(false),
+  INTEGER(false, short.class, int.class, long.class, Integer.class, Long.class, Short.class),
+  REAL(false, double.class, float.class, Double.class, Float.class),
+  TEXT(true, String.class),
+  BLOB(true);
   
   private final Class<?>[] classes;
-  private final String className;
   private final boolean nullable;
   
-  private DataType(boolean nullable, String className, Class<?>... classes) {
-    this.className = className;
+  private DataType(boolean nullable, Class<?>... classes) {
     this.classes = classes;
     this.nullable = nullable;
   }
@@ -35,10 +33,6 @@ public enum DataType {
     return nullable;
   }
 
-  public String getClassName() {
-    return className;
-  }
-  
   public static DataType fromClass(Class<?> c) {
     return classToType.get(c);
   }

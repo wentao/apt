@@ -41,11 +41,34 @@ public class ModelProcessor extends AbstractProcessor {
     }
   }
   
+  private static final Map<Class<?>, String> classToName = new HashMap<Class<?>, String>();
+  static {
+    classToName.put(int.class, "Integer");
+    classToName.put(short.class, "Short");
+    classToName.put(long.class, "Long");
+    classToName.put(Integer.class, "Integer");
+    classToName.put(Short.class, "Short");
+    classToName.put(Long.class, "Long");
+    classToName.put(String.class, "String");
+  }
+  
+  private static final Map<Class<?>, String> classToNameForMethod = new HashMap<Class<?>, String>();
+  static {
+    classToNameForMethod.put(int.class, "Int");
+    classToNameForMethod.put(short.class, "Short");
+    classToNameForMethod.put(long.class, "Long");
+    classToNameForMethod.put(Integer.class, "Int");
+    classToNameForMethod.put(Short.class, "Short");
+    classToNameForMethod.put(Long.class, "Long");
+    classToNameForMethod.put(String.class, "String");
+  }
+  
   public static final class Field {
     private final String name;
     private final DataType type;
     private final boolean isKey;
     private final String capName;
+    private final Class<?> clazz;
 
     public String getName() {
       return name;
@@ -62,10 +85,23 @@ public class ModelProcessor extends AbstractProcessor {
     public String getCapName() {
       return capName;
     }
+    
+    public String getClassName() {
+      return classToName.get(clazz);
+    }
+    
+    public String getClassNameForMethod() {
+      return classToNameForMethod.get(clazz);
+    }
 
-    public Field(String name, DataType type, boolean isKey) {
+    public Field(String name, Class<?> clazz, boolean isKey) {
       this.name = name;
-      this.type = type;
+      this.type = DataType.fromClass(clazz);
+      if (type == null) {
+        System.err.printf("Unable to determine the data type for %s:%s\n", name, clazz);
+        System.exit(-1);
+      }
+      this.clazz = clazz;
       this.isKey = isKey;
       this.capName = name.substring(0, 1).toUpperCase() + name.substring(1);
     }
@@ -93,31 +129,21 @@ public class ModelProcessor extends AbstractProcessor {
         }
       }
       
-      Property fieldSpec = element.getAnnotation(Property.class);
-      DataType fieldType = fieldSpec.value();
       String fieldName = element.toString();
-      
-      if (fieldType == DataType.AUTO) {
-        String fieldTypeName = element.asType().toString();
-        Class<?> fieldClass = primitiveClasses.get(fieldTypeName);
-        try {
-          if (fieldClass == null) {
-            fieldClass = Class.forName(fieldTypeName);
-          }
-          fieldType = DataType.fromClass(fieldClass);
-          if (fieldType == null) {
-            System.err.printf("Unable to determine the data type for %s:%s in %s\n",
-                fieldName, fieldTypeName, typeName);
-            return false;
-          }
-        } catch (ClassNotFoundException e) {
-          System.err.printf("Unable to load the class for %s:%s in %s\n",
-              fieldName, fieldTypeName, typeName);
-          return false;
+      String fieldTypeName = element.asType().toString();
+      Class<?> fieldClass = primitiveClasses.get(fieldTypeName);
+      try {
+        if (fieldClass == null) {
+          fieldClass = Class.forName(fieldTypeName);
         }
+      } catch (ClassNotFoundException e) {
+        System.err.printf("Unable to load the class for %s:%s in %s\n",
+            fieldName, fieldTypeName, typeName);
+        return false;
       }
 
-      typeToFields.get(typeName).add(new Field(fieldName, fieldType, fieldSpec.isKey()));
+      typeToFields.get(typeName).add(new Field(fieldName, fieldClass, 
+          element.getAnnotation(Property.class).isKey()));
     }
     
     Map<String, Set<Field>> entityToFields = new HashMap<String, Set<Field>>();
@@ -175,8 +201,9 @@ public class ModelProcessor extends AbstractProcessor {
       System.exit(-1);
     }
     int lastDot = entityName.lastIndexOf(".");
-    String daoName = entityName.substring(lastDot + 1) + "Dao";
     String packageName = entityName.substring(0, lastDot);
+    entityName = entityName.substring(lastDot + 1);
+    String daoName = entityName + "Dao";
     
     // Load and init template
     Configuration cfg = new Configuration();
@@ -192,7 +219,8 @@ public class ModelProcessor extends AbstractProcessor {
     input.put("package_name", packageName);
 
     // Use template to generate source file
-    JavaFileObject jfo = processingEnv.getFiler().createSourceFile(entityName + "Dao");
+    JavaFileObject jfo = processingEnv.getFiler().createSourceFile(
+        packageName + "." + entityName + "Dao");
     Writer writer = jfo.openWriter();
     template.process(input, writer);
     writer.flush();

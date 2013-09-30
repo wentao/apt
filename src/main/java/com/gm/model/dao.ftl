@@ -12,7 +12,9 @@ import android.database.sqlite.SQLiteOpenHelper;
 public class ${dao_name} extends SQLiteOpenHelper {
  
   private static final int DATABASE_VERSION = 1;
+  
   private static final String DATABASE_NAME = "${package_name}";
+
   private static final String TABLE_NAME = "${entity_name}";
  
   public ${dao_name}(Context context) {
@@ -24,7 +26,7 @@ public class ${dao_name} extends SQLiteOpenHelper {
     String CREATE_ENTITY_TABLE = "CREATE TABLE " + TABLE_NAME + "("
         + "${key_property.name} ${key_property.type} PRIMARY KEY"
         <#list properties as property>
-        + ", ${property.name} + ${property.type}"
+        + ", ${property.name} ${property.type}"
         </#list>
         + ")";
     db.execSQL(CREATE_ENTITY_TABLE);
@@ -51,7 +53,7 @@ public class ${dao_name} extends SQLiteOpenHelper {
     db.close();
   }
 
-  public ${entity_name} get(${key_property.type.className} key) {
+  public ${entity_name} get(${key_property.className} key) {
     SQLiteDatabase db = this.getReadableDatabase();
 
     Cursor cursor = db.query(TABLE_NAME, new String[] {
@@ -61,14 +63,14 @@ public class ${dao_name} extends SQLiteOpenHelper {
         </#list>}, "${key_property.name} = ?", new String[] { String.valueOf(key) }, 
         null, null, null, null);
     
-    if (cursor != null)
-      cursor.moveToFirst();
+    if (!cursor.moveToFirst()) {
+      return null;
+    }
  
-    ${entity_name} entity = new ${entity_name}(key);
-    int i = 1;
+    int i = 0;
+    ${entity_name} entity = new ${entity_name}(cursor.get${key_property.classNameForMethod}(i++));
     <#list properties as property>
-    entity.set${property.capName}(cursor.get${property.type.className}(i));
-    i++;
+    entity.set${property.capName}(cursor.get${property.classNameForMethod}(i++));
     </#list>
 
     return entity;
@@ -88,9 +90,9 @@ public class ${dao_name} extends SQLiteOpenHelper {
     if (cursor.moveToFirst()) {
       do {
         int i = 0;
-        ${entity_name} entity = new ${entity_name}(cursor.get${key_property.type.className}(i++));
+        ${entity_name} entity = new ${entity_name}(cursor.get${key_property.classNameForMethod}(i++));
         <#list properties as property>
-        entity.set${property.capName}(cursor.get${property.type.className}(i++));
+        entity.set${property.capName}(cursor.get${property.classNameForMethod}(i++));
         </#list>
         list.add(entity);
       } while (cursor.moveToNext());
@@ -115,7 +117,7 @@ public class ${dao_name} extends SQLiteOpenHelper {
     delete(entity.get${key_property.capName}());
   }
   
-  public void delete(${key_property.type.className} key) {
+  public void delete(${key_property.className} key) {
     SQLiteDatabase db = this.getWritableDatabase();
     db.delete(TABLE_NAME, "${key_property.name} = ?",
         new String[] { String.valueOf(key) });
